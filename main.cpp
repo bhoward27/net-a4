@@ -3,6 +3,8 @@
 #include <fstream>
 #include <vector>
 #include <sstream>
+#include <algorithm>
+#include <array>
 
 using std::cin;
 using std::cout;
@@ -12,34 +14,58 @@ using std::endl;
 using std::vector;
 using std::stringstream;
 using std::stoi;
+using std::all_of;
+using std::array;
 
 struct IPAddress {
     string addr;
-    int num1, num2, num3, num4;
+    array<unsigned int, 4> addr_quarters;
 
     IPAddress(string s) {
         addr = s;
 
-        // process to num 1, num2, etc..
+        // Tokenize based on '.'
+        stringstream ss(s);
+        string quarter_addr = "";
+        // cout << "Extracting IP address..." << endl;
+        for (int i = 0; i < 4 && getline(ss, quarter_addr, '.'); i++) {
+            if (quarter_addr == "*") {
+                addr_quarters[i] = -1; // TODO: Careful! This is unsigned!
+            }
+            else {
+                addr_quarters[i] = stoi(quarter_addr);
+                // cout << quarter_addr << ".";
+            }
+        }
+        // cout << endl;
     }
 };
 
 struct Row {
     IPAddress destination;
     IPAddress gateway;
-    int net_id_len;
+    unsigned int genmask;
     int metric;
     string interface;
 };
 
-int count_consecutive_ones(IPAddress mask) {
-    return 1;
-}
-
 void print_table(const vector<Row>& table) {
     for (auto row : table) {
-        cout << row.net_id_len << " " << row.interface << endl;
+        cout << row.destination.addr << " "
+            << row.gateway.addr << " " 
+            << row.genmask << " " 
+            << row.metric << " "
+            << row.interface << endl;
     }
+}
+
+unsigned int make_mask(IPAddress mask_addr) {
+    unsigned int mask = 0;
+    for (int i = 0; i < 4; i++) {
+        unsigned int quart = mask_addr.addr_quarters[3 - i];
+        mask += (quart << 8*i);
+    }
+    return mask;
 }
 
 int main() {
@@ -59,14 +85,14 @@ int main() {
     // Read the file.
     string line = "";
     vector<Row> routing_table;
-    while (getline(file, line)) {
+    while (getline(file, line) && !all_of(line.begin(), line.end(), isspace)) {
         // Tokenize line with tabs \t.
         // Write each component into memory as needed.
         stringstream ss(line);
         string elem;
         // Initialize row with nulls.
         IPAddress null_addr("");
-        Row row = { null_addr, null_addr, 0, 0, "" };
+        Row row = {null_addr, null_addr, 0, 0, ""};
 
         // Extract the first element.
         getline(ss, elem, '\t');
@@ -79,11 +105,11 @@ int main() {
         // Third.
         getline(ss, elem, '\t');
         IPAddress genmask(elem);
-        row.net_id_len = count_consecutive_ones(genmask);
+        row.genmask = make_mask(genmask);
 
         // Fourth.
         getline(ss, elem, '\t');
-        // row.metric = stoi(elem); // This fails.
+        row.metric = stoi(elem); // This fails.
         
         // Fifth.
         getline(ss, elem, '\t');
