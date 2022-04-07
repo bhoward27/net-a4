@@ -5,6 +5,8 @@
 #include <sstream>
 #include <algorithm>
 #include <array>
+#include <cstdint>
+#include <bits/stdc++.h>
 
 using std::cin;
 using std::cout;
@@ -16,56 +18,62 @@ using std::stringstream;
 using std::stoi;
 using std::all_of;
 using std::array;
+using std::sort;
+using std::greater;
 
 struct IPAddress {
     string addr;
-    array<unsigned int, 4> addr_quarters;
+    uint32_t bin_addr;
 
     IPAddress(string s) {
         addr = s;
 
         // Tokenize based on '.'
+        array<uint32_t, 4> addr_quarters;
         stringstream ss(s);
         string quarter_addr = "";
-        // cout << "Extracting IP address..." << endl;
         for (int i = 0; i < 4 && getline(ss, quarter_addr, '.'); i++) {
             if (quarter_addr == "*") {
-                addr_quarters[i] = -1; // TODO: Careful! This is unsigned!
             }
             else {
                 addr_quarters[i] = stoi(quarter_addr);
-                // cout << quarter_addr << ".";
             }
         }
-        // cout << endl;
+        uint32_t bin_addr = 0;
+        for (int i = 0; i < 4; i++) {
+            uint32_t quart = addr_quarters[3 - i];
+            bin_addr += (quart << 8*i);
+        }
+        this->bin_addr = bin_addr;
     }
 };
 
 struct Row {
     IPAddress destination;
     IPAddress gateway;
-    unsigned int genmask;
+    IPAddress genmask;
     int metric;
     string interface;
+
+    bool operator<(const Row& right) const {
+        return (genmask.bin_addr < right.genmask.bin_addr);
+    }
+
+    bool operator>(const Row& right) const {
+        return (genmask.bin_addr > right.genmask.bin_addr);
+    }
 };
 
 void print_table(const vector<Row>& table) {
+    const char sep = '\t';
     for (auto row : table) {
-        cout << row.destination.addr << " "
-            << row.gateway.addr << " " 
-            << row.genmask << " " 
-            << row.metric << " "
+        cout << row.destination.addr << sep;
+        if (row.gateway.addr == "*") cout << "*" << sep;
+        else cout << row.gateway.addr << sep;
+        cout << row.genmask.addr << sep 
+            << row.metric << sep
             << row.interface << endl;
     }
-}
-
-unsigned int make_mask(IPAddress mask_addr) {
-    unsigned int mask = 0;
-    for (int i = 0; i < 4; i++) {
-        unsigned int quart = mask_addr.addr_quarters[3 - i];
-        mask += (quart << 8*i);
-    }
-    return mask;
 }
 
 int main() {
@@ -92,7 +100,7 @@ int main() {
         string elem;
         // Initialize row with nulls.
         IPAddress null_addr("");
-        Row row = {null_addr, null_addr, 0, 0, ""};
+        Row row = {null_addr, null_addr, null_addr, 0, ""};
 
         // Extract the first element.
         getline(ss, elem, '\t');
@@ -104,8 +112,7 @@ int main() {
 
         // Third.
         getline(ss, elem, '\t');
-        IPAddress genmask(elem);
-        row.genmask = make_mask(genmask);
+        row.genmask = IPAddress(elem);
 
         // Fourth.
         getline(ss, elem, '\t');
@@ -121,6 +128,12 @@ int main() {
     // Close file.
     file.close();
 
+    cout << "The table in its original order:\n";
+    print_table(routing_table);
+    cout << endl;
+    
+    sort(routing_table.begin(), routing_table.end(), greater<Row>());
+    cout << "The table in sorted order:\n";
     print_table(routing_table);
 
     return 0;
