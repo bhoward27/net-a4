@@ -46,6 +46,10 @@ struct IPAddress {
         }
         this->bin_addr = bin_addr;
     }
+
+    bool operator==(const IPAddress& right) const {
+        return (bin_addr == right.bin_addr);
+    }
 };
 
 struct Row {
@@ -76,8 +80,20 @@ void print_table(const vector<Row>& table) {
     }
 }
 
+// Returns the index of the row of the routing table that the packet should be sent to.
+int forward(IPAddress packet_addr, const vector<Row>& routing_table) {
+    int len = routing_table.size();
+    int num_matches = 0;
+    for (int i = 0; i < len; i++) {
+        Row row = routing_table[i];
+
+    }
+
+    return len - 1;
+}
+
 int main() {
-    // Ask for the filename
+    // Ask for the filename.
     cout << "Please enter the file name for the routing table (note that the file must exist in this project's directory): ";
     string file_name = "";
     getline(cin, file_name);
@@ -95,9 +111,10 @@ int main() {
     vector<Row> routing_table;
     while (getline(file, line) && !all_of(line.begin(), line.end(), isspace)) {
         // Tokenize line with tabs \t.
-        // Write each component into memory as needed.
+
         stringstream ss(line);
         string elem;
+
         // Initialize row with nulls.
         IPAddress null_addr("");
         Row row = {null_addr, null_addr, null_addr, 0, ""};
@@ -116,7 +133,7 @@ int main() {
 
         // Fourth.
         getline(ss, elem, '\t');
-        row.metric = stoi(elem); // This fails.
+        row.metric = stoi(elem);
         
         // Fifth.
         getline(ss, elem, '\t');
@@ -124,8 +141,6 @@ int main() {
 
         routing_table.push_back(row);
     }
-
-    // Close file.
     file.close();
 
     cout << "The table in its original order:\n";
@@ -135,6 +150,24 @@ int main() {
     sort(routing_table.begin(), routing_table.end(), greater<Row>());
     cout << "The table in sorted order:\n";
     print_table(routing_table);
+
+    // Packet forwarding routine.
+    string input_addr = "";
+    char cont;
+    do {
+        cout << endl;
+        cout << "Enter the IP address of the packet to be forwarded: ";
+        cin.ignore();
+        getline(cin, input_addr);
+        IPAddress addr(input_addr);
+
+        // Forward the packet.
+
+
+        // Ask whether to continue.
+        cout << "Would you like to forward another packet? (Y/n): ";
+        cin >> cont;
+    } while (cont == 'Y');
 
     return 0;
 }
