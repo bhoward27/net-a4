@@ -86,6 +86,10 @@ void print_table(const vector<Row>& table) {
     }
 }
 
+bool compare(pair<int, int> x, pair<int, int> y) {
+    return x.second < y.second;
+}
+
 int best_match(const vector<Row>& routing_table, const vector<int>& matches) {
     /*
         Rules:
@@ -117,23 +121,19 @@ int best_match(const vector<Row>& routing_table, const vector<int>& matches) {
         prev_match_mask = match_mask;
     }
 
-    // TODO: Add this code back in. It currently causes a seg fault on dereferencing.
     // Find the min cost from equal_genmasks.
-    // auto min_elem = *min_element(equal_genmasks.begin(), equal_genmasks.end(), [](const auto& lhs, const auto& rhs) {
-    //     return lhs.second < rhs.second;    
-    // });
-    // int min_cost = min_elem.second;
-    int min_cost = 0;
+    if (!equal_genmasks.empty()) {
+        auto min_elem = *min_element(equal_genmasks.begin(), equal_genmasks.end(), compare);
+        int min_cost = min_elem.second;
 
-    // Then choose the first index that has the min cost.
-    int best_match;
-    for (auto match : equal_genmasks) {
-        if (min_cost == match.second) {
-            best_match = match.first;
+        // Then choose the first index that has the min cost.
+        for (auto match : equal_genmasks) {
+            if (min_cost == match.second) {
+                return match.first;
+            }
         }
     }
-
-    return best_match;
+    return matches[0];
 }
 
 // Returns the index of the row of the routing table that the packet should be sent to.
@@ -147,6 +147,15 @@ int forward(IPAddress packet_addr, const vector<Row>& routing_table) {
         }
     }
     return best_match(routing_table, matches);
+}
+
+string next_hop_addr(IPAddress packet_addr, Row matching_row) {
+    if (matching_row.gateway.addr == "*") {
+        return packet_addr.addr;
+    }
+    else {
+        return matching_row.gateway.addr;
+    }
 }
 
 int main() {
@@ -214,19 +223,19 @@ int main() {
     do {
         cout << endl;
         cout << "Enter the IP address of the packet to be forwarded: ";
-        cin.ignore();
         getline(cin, input_addr);
         IPAddress addr(input_addr);
 
         // Forward the packet.
         Row best_row = routing_table[forward(addr, routing_table)];
         cout << "The destination IP address is " << best_row.destination.addr << endl;
-        // TODO: print next hop address
+        cout << "The next hop IP address is " << next_hop_addr(addr, best_row) << endl;
         cout << "The interface the packet will leave through is " << best_row.interface << endl;
 
         // Ask whether to continue.
         cout << "Would you like to forward another packet? (Y/n): ";
         cin >> cont;
+        cin.ignore();
     } while (cont == 'Y');
 
     return 0;
