@@ -20,6 +20,8 @@ using std::all_of;
 using std::array;
 using std::sort;
 using std::greater;
+using std::pair;
+using std::min_element;
 
 struct IPAddress {
     string addr;
@@ -49,6 +51,10 @@ struct IPAddress {
 
     bool operator==(const IPAddress& right) const {
         return (bin_addr == right.bin_addr);
+    }
+
+    uint32_t operator&(const IPAddress& right) const {
+        return bin_addr & right.bin_addr;
     }
 };
 
@@ -80,16 +86,67 @@ void print_table(const vector<Row>& table) {
     }
 }
 
-// Returns the index of the row of the routing table that the packet should be sent to.
-int forward(IPAddress packet_addr, const vector<Row>& routing_table) {
-    int len = routing_table.size();
-    int num_matches = 0;
-    for (int i = 0; i < len; i++) {
-        Row row = routing_table[i];
+int best_match(const vector<Row>& routing_table, const vector<int>& matches) {
+    /*
+        Rules:
+            - Favour matches with longer genmasks
+            - If genmasks are equal length, choose row with cheapest cost/metric
+            - If genmasks and costs are equal, choose row of smaller index.
 
+        Rules have to work if more than two matches are at play. Should work for any number.
+    */
+
+    vector<pair<int, int>> equal_genmasks;
+    IPAddress prev_match_mask("");
+    bool prev_pair_was_equal = false;
+    for (int i = 0; i < matches.size(); i++) {
+        int match = matches[i];
+        IPAddress match_mask = routing_table[match].genmask;
+        if (i && prev_match_mask == match_mask) {
+            if (!prev_pair_was_equal && i > 1) {
+                break;
+            }
+            if (i == 1) {
+                equal_genmasks.push_back({matches[0], routing_table[matches[0]].metric});
+            }
+            equal_genmasks.push_back({match, routing_table[match].metric});
+            prev_pair_was_equal = true;
+        } else if (prev_pair_was_equal) {
+            break;
+        }
+        prev_match_mask = match_mask;
     }
 
-    return len - 1;
+    // TODO: Add this code back in. It currently causes a seg fault on dereferencing.
+    // Find the min cost from equal_genmasks.
+    // auto min_elem = *min_element(equal_genmasks.begin(), equal_genmasks.end(), [](const auto& lhs, const auto& rhs) {
+    //     return lhs.second < rhs.second;    
+    // });
+    // int min_cost = min_elem.second;
+    int min_cost = 0;
+
+    // Then choose the first index that has the min cost.
+    int best_match;
+    for (auto match : equal_genmasks) {
+        if (min_cost == match.second) {
+            best_match = match.first;
+        }
+    }
+
+    return best_match;
+}
+
+// Returns the index of the row of the routing table that the packet should be sent to.
+int forward(IPAddress packet_addr, const vector<Row>& routing_table) {
+    vector<int> matches;
+    int len = routing_table.size();
+    for (int i = 0; i < len; i++) {
+        Row row = routing_table[i];
+        if ((row.destination & row.genmask) == (packet_addr & row.genmask)) {
+            matches.push_back(i);
+        }
+    }
+    return best_match(routing_table, matches);
 }
 
 int main() {
@@ -162,7 +219,10 @@ int main() {
         IPAddress addr(input_addr);
 
         // Forward the packet.
-
+        Row best_row = routing_table[forward(addr, routing_table)];
+        cout << "The destination IP address is " << best_row.destination.addr << endl;
+        // TODO: print next hop address
+        cout << "The interface the packet will leave through is " << best_row.interface << endl;
 
         // Ask whether to continue.
         cout << "Would you like to forward another packet? (Y/n): ";
