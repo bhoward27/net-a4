@@ -208,10 +208,6 @@ int main() {
         routing_table.push_back(row);
     }
     file.close();
-
-    cout << "The table in its original order:\n";
-    print_table(routing_table);
-    cout << endl;
     
     sort(routing_table.begin(), routing_table.end(), greater<Row>());
     cout << "The table in sorted order:\n";
